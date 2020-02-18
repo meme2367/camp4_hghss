@@ -161,28 +161,18 @@ public class RecruitService {
 
     public ResponseEntity GetDetailRecruit(DataWithToken dataWithToken) {
 
+        //index 처리
         Recruit updateDetail = updateViewCount(GetRecruit(dataWithToken.getRecruitIdx()));
-
-        System.out.print("\ngetCompanyName\n");//ok
-        System.out.print(updateDetail.getCompanyName());
 
 //문제
         updateDetail.setFavorite(GetFavorite(dataWithToken.getUserIdx(),dataWithToken.getRecruitIdx()));
 
 
-
-        System.out.print("\nisFavorite\n");
-        System.out.print(updateDetail.isFavorite());
-
         updateDetail.setFavoriteCount(GetFavoriteCount(dataWithToken.getRecruitIdx()));
 
-        System.out.print("\nfavoriteCount\n");
-        System.out.print(updateDetail.getFavoriteCount());
-
+        //index 처리
         List<GetRecruitPositionResponseDTO> tmpEmployments = GetPositionList(dataWithToken.getRecruitIdx());
 
-        System.out.print("\nGETDivision\n");
-        System.out.print(tmpEmployments.get(0).getDivision());
 
         GetRecruitPageResponseDTO getRecruitPageResponseDTO
                 = new GetRecruitPageResponseDTO(updateDetail,tmpEmployments);
@@ -279,20 +269,9 @@ public class RecruitService {
                 return SimpleResponse.ok();
             }
         }
-        log.info("getRecruitIdx ");
-        System.out.println(dataWithToken.getRecruitIdx());//ok
 
         List<Position> tmpPosition = recruitMapper.getPosition(dataWithToken.getRecruitIdx());
-        log.info("getPosition- content ");
-        log.info(tmpPosition.get(0).getQuestionContent());//null
-        log.info("getPosition1 - positionid");
-        System.out.println(tmpPosition.get(0).getPositionId());//0
-        log.info("getPosition2- field ");
-        log.info(tmpPosition.get(0).getField());//ok
-        log.info("getPosition3- questionLimit");
-        System.out.println(tmpPosition.get(0).getQuestionLimit());//ok
-        log.info("getPosition4- division");
-        System.out.println(tmpPosition.get(0).getDivision());//ok 4
+
 
 
         List<Question> tmpQuestionList = new ArrayList<>();
