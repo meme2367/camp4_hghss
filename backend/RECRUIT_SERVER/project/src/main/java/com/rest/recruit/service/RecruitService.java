@@ -1,5 +1,6 @@
 package com.rest.recruit.service;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.rest.recruit.dto.response.GetRecruitPageResponseDTO;
 import com.rest.recruit.dto.ResultResponse;
 import com.rest.recruit.dto.ResultResponseWithoutData;
@@ -11,16 +12,22 @@ import com.rest.recruit.exception.GetCalendarException;
 import com.rest.recruit.exception.GetDetailRecruitPageException;
 import com.rest.recruit.mapper.RecruitMapper;
 import com.rest.recruit.model.*;
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.AsyncResult;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 @Slf4j
 @Service
@@ -35,51 +42,78 @@ public class RecruitService {
 
     /////////////////////////////////////////////////////////////////////////////////////
     ////refactor
-    @Transactional
-    @Cacheable(cacheNames="calendar" , key = "#getRecruitCalendarRequestDTO.startTime+#getRecruitCalendarRequestDTO.endTime")
-    public ResponseEntity GetRecruitCalendar(GetRecruitCalendarRequestDTO getRecruitCalendarRequestDTO) {
 
-        List<Calendars> tmp = recruitMapper.getRecruitCalendar(getRecruitCalendarRequestDTO);
 
+    @Async
+    public Future<List<Calendars>> GetCalendar(GetRecruitCalendarRequestDTO getRecruitCalendarRequestDTO) {
+        List<Calendars> result = recruitMapper.getRecruitCalendar(getRecruitCalendarRequestDTO);
+        return new AsyncResult<>(result);
+    }
+
+    @Cacheable(cacheNames="calendar", key = "#getRecruitCalendarRequestDTO.startTime+#getRecruitCalendarRequestDTO.endTime")
+    public ResponseEntity GetRecruitCalendar(GetRecruitCalendarRequestDTO getRecruitCalendarRequestDTO) throws ExecutionException, InterruptedException {
+
+        Future<List<Calendars>> tmp = GetCalendar(getRecruitCalendarRequestDTO);
         List<GetCalendarResponseDTO> results = new ArrayList<>();
+        if(tmp.isDone()) {
 
-        for (int i = 0; i < tmp.size(); i++) {
-            results.add(GetCalendarResponseDTO.of(tmp.get(i)));
+            for (int i = 0; i < tmp.get().size(); i++) {
+                results.add(GetCalendarResponseDTO.of(tmp.get().get(i)));
+            }
+
+            return SimpleResponse.ok(ResultResponse.builder()
+                    .message("캘린더 조회 성공")
+                    .status("200")
+                    .success("true")
+                    .data(results).build());
         }
-        return SimpleResponse.ok(ResultResponse.builder()
-                .message("캘린더 조회 성공")
-                .status("200")
-                .success("true")
-                .data(results).build());
+
+        return SimpleResponse.ok(ResultResponseWithoutData.builder()
+                .message("캘린더 조회 실패")
+                .status("500")
+                .success("false")
+                .build());
     }
 
-    public ResponseEntity GetUserLikeList(GetRecruitCalendarRequestDTO getRecruitCalendarRequestDTO) {
+    @Async
+    public Future<List<Integer>> GetLikeList(GetRecruitCalendarRequestDTO getRecruitCalendarRequestDTO) {
         List<Integer> results = recruitMapper.GetUserLikeList(getRecruitCalendarRequestDTO);
-
-        return SimpleResponse.ok(ResultResponse.builder()
-                .message("유저가 즐겨찾기한 채용공고 리스트 조회 성공")
-                .status("200")
-                .success("true")
-                .data(results).build());
-
+        return new AsyncResult<>(results);
     }
 
+    public ResponseEntity GetUserLikeList(GetRecruitCalendarRequestDTO getRecruitCalendarRequestDTO) throws ExecutionException, InterruptedException {
+        Future<List<Integer>> results = GetLikeList(getRecruitCalendarRequestDTO);
 
-   @Cacheable(cacheNames="detailRecruit", key = "#recruitIdx")
-    public Recruit GetRecruit(int recruitIdx){
+        if(results.isDone()) {
+            return SimpleResponse.ok(ResultResponse.builder()
+                    .message("유저가 즐겨찾기한 채용공고 리스트 조회 성공")
+                    .status("200")
+                    .success("true")
+                    .data(results.get()).build());
+        }
+
+        return SimpleResponse.ok(ResultResponseWithoutData.builder()
+                .message("유저가 즐겨찾기한 채용공고 리스트 조회 실패")
+                .status("500")
+                .success("false")
+                .build());
+    }
+
+    @Async
+    @Cacheable(cacheNames="detailRecruit", key = "#recruitIdx")
+    public Future<Recruit> GetRecruit(int recruitIdx) {
         Recruit recruit = recruitMapper.GetRecruit(recruitIdx);
-        return recruit;
+        return new AsyncResult<>(recruit);
     }
 
 
 
+
+    @Async
     @Cacheable(cacheNames ="detailPosition", key="#recruitIdx")
-    public List<GetRecruitPositionResponseDTO> GetPositionList(int recruitIdx) {
+    public Future<List<GetRecruitPositionResponseDTO>> GetPositionList(int recruitIdx) {
 
         List<Position> tmpPosition = recruitMapper.getPosition(recruitIdx);
-
-        System.out.print("recruit-questionContent");
-        System.out.print(tmpPosition.get(0).getQuestionContent());
 
 
         List<Question> tmpQuestionList = new ArrayList<>();
@@ -115,12 +149,14 @@ public class RecruitService {
                 tmpPosition.get(j).getDivision(),
                 tmpPosition.get(j).getQuestionId(),tmpQuestionList));
 
-        return tmpEmployments;
+        return new AsyncResult<>(tmpEmployments);
     }
 
 
 
-    private Recruit updateViewCount(Recruit tmpdetail) {
+
+    @Async
+    public Future<Integer> updateViewCount(Recruit tmpdetail)  {
         String key = tmpdetail.getEndTime()+":"+tmpdetail.getRecruitId() + ":" +
                 tmpdetail.getCompanyId() + ":" + tmpdetail.getCompanyName();
 
@@ -128,80 +164,100 @@ public class RecruitService {
 
         if (zsetOperations.reverseRank("ranking-visit",key) != null) {
             double score = zsetOperations.incrementScore("ranking-visit",key,1);
-            tmpdetail.setViewCount( Integer.parseInt(String.valueOf(Math.round(score))));
 
-            System.out.print("updateViewCount - test\n");//ok
-            System.out.print(score);
-
+//tmpdetail.setViewCount( Integer.parseInt(String.valueOf(Math.round(score))));
+            return new AsyncResult<>(new Integer(Integer.parseInt(String.valueOf(Math.round(score)))));
         } else {
             int updateCheck = recruitMapper.updateViewCountWithDB(tmpdetail.getRecruitId());
             int getVisitCount = recruitMapper.GetViewCount(tmpdetail.getRecruitId());
 
             //레디스에없다면 update +1
-            tmpdetail.setViewCount(getVisitCount);
 
-            System.out.print("test\n");
-            System.out.print(getVisitCount);
+            return new AsyncResult<>(new Integer(getVisitCount));
+
         }
 
 
-        return tmpdetail;
+
     }
 
-    private boolean GetFavorite(int userIdx, int recruitIdx) {
+    @Async
+    public Future<Boolean> GetFavorite(int userIdx, int recruitIdx) {
 //문제
-        return recruitMapper.GetFavorite(userIdx,recruitIdx) != null ? true : false;
+        RecruitLike result = recruitMapper.GetFavorite(userIdx,recruitIdx);
+
+        return result != null ? new AsyncResult<>(true) : new AsyncResult<>(false);
 
     }
 
-    public int GetFavoriteCount(int recruitIdx) {
-        return recruitMapper.GetFavoriteCount(recruitIdx);
+    @Async
+    public Future<Integer> GetFavoriteCount(int recruitIdx) {
+        int result = recruitMapper.GetFavoriteCount(recruitIdx);
+        return new AsyncResult<>(new Integer(result));
     }
 
 
-    public ResponseEntity GetDetailRecruit(DataWithToken dataWithToken) {
+    @Transactional
+    public ResponseEntity GetDetailRecruit(DataWithToken dataWithToken) throws ExecutionException, InterruptedException {
 
-        //index 처리
-        Recruit updateDetail = updateViewCount(GetRecruit(dataWithToken.getRecruitIdx()));
+        //빈 객체
+        Recruit result = new Recruit();
+        Future<Recruit> getRecruit = GetRecruit(dataWithToken.getRecruitIdx());
+        Future<Boolean> getFavorite = GetFavorite(dataWithToken.getUserIdx(),dataWithToken.getRecruitIdx());
+        Future<Integer> getFavoriteCount = GetFavoriteCount(dataWithToken.getRecruitIdx());
+        Future<List<GetRecruitPositionResponseDTO>> tmpEmployments = GetPositionList(dataWithToken.getRecruitIdx());
 
-//문제
-        updateDetail.setFavorite(GetFavorite(dataWithToken.getUserIdx(),dataWithToken.getRecruitIdx()));
-
-
-        updateDetail.setFavoriteCount(GetFavoriteCount(dataWithToken.getRecruitIdx()));
-
-        //index 처리
-        List<GetRecruitPositionResponseDTO> tmpEmployments = GetPositionList(dataWithToken.getRecruitIdx());
-
-
-        GetRecruitPageResponseDTO getRecruitPageResponseDTO
-                = new GetRecruitPageResponseDTO(updateDetail,tmpEmployments);
-
-
-
-        if (dataWithToken.getStatusCode() == 401) {
-            return SimpleResponse.ok(ResultResponse.builder()
-                    .message("401 Unauthorized")
-                    .status("401")
-                    .success("false")
-                    .data(getRecruitPageResponseDTO).build());
+        if(getRecruit.isDone()) {
+            result.setRecruit(getRecruit.get());
+            Future<Integer> updateViewCount = updateViewCount(getRecruit.get());
+            if(updateViewCount.isDone()) {
+                result.setViewCount(updateViewCount.get().intValue());
+            }
 
         }
 
-        if (dataWithToken.getStatusCode() == 402) {
+        if(getFavorite.isDone()) {
+            result.setFavorite(getFavorite.get());
+        }
+
+        if(getFavoriteCount.isDone()) {
+            result.setFavoriteCount(getFavoriteCount.get());
+        }
+
+        GetRecruitPageResponseDTO getRecruitPageResponseDTO;
+
+        if(getRecruit.isDone() && tmpEmployments.isDone()) {
+            getRecruitPageResponseDTO = new GetRecruitPageResponseDTO(result,tmpEmployments.get());
+
+            if (dataWithToken.getStatusCode() == 401) {
+                return SimpleResponse.ok(ResultResponse.builder()
+                        .message("401 Unauthorized")
+                        .status("401")
+                        .success("false")
+                        .data(getRecruitPageResponseDTO).build());
+
+            }
+
+            if (dataWithToken.getStatusCode() == 402) {
+                return SimpleResponse.ok(ResultResponse.builder()
+                        .message("만료된 토큰입니다.")
+                        .status("402")
+                        .success("false")
+                        .data(getRecruitPageResponseDTO).build());
+            }
+
             return SimpleResponse.ok(ResultResponse.builder()
-                    .message("만료된 토큰입니다.")
-                    .status("402")
-                    .success("false")
+                    .message("상세 조회 성공")
+                    .status("200")
+                    .success("true")
                     .data(getRecruitPageResponseDTO).build());
         }
 
-        return SimpleResponse.ok(ResultResponse.builder()
-                .message("상세 조회 성공")
-                .status("200")
-                .success("true")
-                .data(getRecruitPageResponseDTO).build());
-
+        return SimpleResponse.ok(ResultResponseWithoutData.builder()
+                .message("상세 조회 실패")
+                .status("500")
+                .success("false")
+                .build());
     }
 
 
