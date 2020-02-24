@@ -28,7 +28,7 @@ public class RankingController {
     @Scheduled(cron="0 50 23 * * ?")
     @ApiOperation(value = "채용공고 db to redis", httpMethod = "POST", notes ="채용공고 DB를 REDIS에 업로드")
     @PostMapping("/updateRedis")
-    public ResponseEntity DbToRedis(){
+    public ResponseEntity DbToRedis() throws ParseException {
         return rankingService.DbToRedis();
     }
 

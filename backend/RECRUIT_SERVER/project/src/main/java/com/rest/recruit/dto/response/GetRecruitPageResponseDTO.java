@@ -37,4 +37,8 @@ public class GetRecruitPageResponseDTO {
         this.favoriteCount = tmpdetail.getFavoriteCount();
         this.employments = tmpEmployments;
     }
+
+    public GetRecruitPageResponseDTO() {
+
+    }
 }

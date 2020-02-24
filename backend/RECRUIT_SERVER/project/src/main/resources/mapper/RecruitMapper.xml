@@ -59,19 +59,7 @@
         ORDER BY recruit.start_time ASC;
     </select>
 
-
-
-
-
-
-
-
-
-
-
-
     <select id = "getRecruitCalendar" parameterType="String" resultType="com.rest.recruit.model.Calendars">
-
         SELECT
         recruit.id AS recruitId,
         company.id AS companyId,
@@ -107,7 +95,7 @@
     </select>
 
     <select id = "GetRecruit" resultType="com.rest.recruit.model.Recruit">
-        SELECT
+         SELECT
         recruit.id AS recruitId,
         company.id AS companyId,
         company.name AS companyName,
@@ -115,8 +103,8 @@
         recruit.employment_page_url AS employmentPageUrl,
         DATE_FORMAT(recruit.start_time,'%Y-%m-%d-%h-%i') AS startTime,
         DATE_FORMAT(recruit.end_time,'%Y-%m-%d-%h-%i') AS endTime,
-        recruit.recruit_type AS 'recruit_type',
-        recruit.content
+        recruit.recruit_type AS recruitType,
+        recruit.content AS content
         FROM recruit
         INNER JOIN company ON company.id = recruit.company_id
         WHERE recruit.id = #{recruitIdx};
@@ -129,28 +117,6 @@
     <select id = "GetFavoriteCount" resultType="int">
         SELECT like_count FROM recruit WHERE id = #{recruitIdx};
     </select>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
     <select id = "GetDetailRecruitPage" resultType="com.rest.recruit.model.RecruitDetail">
@@ -172,18 +138,17 @@
 
 
     <select id = "GetFavorite" resultType="com.rest.recruit.model.RecruitLike" >
-        SELECT * FROM recruit_like WHERE user_id = #{userIdx} AND recruit_id = #{recruitIdx};
+        SELECT user_id AS userId, recruit_id AS recruitId FROM recruit_like WHERE user_id = #{userIdx} AND recruit_id = #{recruitIdx};
     </select>
 
     <select id = "getPosition" resultType="com.rest.recruit.model.Position">
         SELECT
-        position.id AS 'position_id', position.title AS 'field' , position.division,
-        question.id AS 'question_id',question.question_content,
-        question.question_limit
-        FROM recruit
-        INNER JOIN position ON position.recruit_id = recruit.id
+        position.id AS positionId, position.title AS field, position.division,
+        question.id AS questionId,question.question_content AS questionContent,
+        question.question_limit AS questionLimit
+        FROM position
         INNER JOIN question ON question.position_id = position.id
-        WHERE recruit.id = #{recruitIdx};
+        WHERE position.recruit_id= #{recruitIdx};
     </select>
 
     <select id="getSimpleRecruit" resultType="com.rest.recruit.model.SimpleRecruit">
@@ -193,8 +158,8 @@
         DATE_FORMAT(recruit.end_time,'%Y-%m-%d-%h-%i') AS endTime,
         company.name AS companyName,
         recruit.view_count AS viewCount,
-        recruit.like_count AS 'favoriteCount',
-        recruit.resume_count AS 'applyCount'
+        recruit.like_count AS favoriteCount,
+        recruit.resume_count AS applyCount
         FROM recruit
         INNER JOIN company ON company.id = recruit.company_id
         WHERE recruit.id IN (SELECT recruit.id FROM recruit)

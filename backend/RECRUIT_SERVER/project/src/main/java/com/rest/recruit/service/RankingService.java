@@ -30,7 +30,7 @@ public class RankingService {
     RedisZsetUtil redisZsetUtil;
 
 
-    public ResponseEntity DbToRedis() {
+    public ResponseEntity DbToRedis() throws ParseException {
 
         List<SimpleRecruit> recruitDetail = recruitMapper.getSimpleRecruit();
 
@@ -38,15 +38,34 @@ public class RankingService {
             String tmpString =  tmp.getEndTime()+":"+tmp.getRecruitId() + ":" +
                     tmp.getCompanyId() + ":" + tmp.getCompanyName();
 
+
+            Date today = new Date();
+            SimpleDateFormat transFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm");
+            Date date = transFormat.parse(tmp.getEndTime());
+
             Long visitRank = redisZsetUtil.reverseRank("ranking-visit",tmpString);
             Long likeRank = redisZsetUtil.reverseRank("ranking-like",tmpString);
             Long applyRank = redisZsetUtil.reverseRank("ranking-apply",tmpString);
 
-            if (visitRank != null || likeRank != null || applyRank != null) { continue; }
-
-            redisZsetUtil.add("ranking-apply", tmpString, tmp.getApplyCount());
-            redisZsetUtil.add("ranking-visit", tmpString, tmp.getViewCount());
-            redisZsetUtil.add("ranking-like", tmpString, tmp.getFavoriteCount());
+            if (date.compareTo(today) < 0) {
+                if (visitRank != null || likeRank != null || applyRank != null) {
+                    System.out.print("\nremoveredis\n");
+                    System.out.print(tmpString);
+                    System.out.print("\n");
+                    redisZsetUtil.remove("ranking-visit", tmpString);
+                    redisZsetUtil.remove("ranking-apply", tmpString);
+                    redisZsetUtil.remove("ranking-like", tmpString);
+                }
+            } else {//no magam
+                if (visitRank == null && likeRank == null && applyRank == null) {
+                    System.out.print("\nredisTmp\n");
+                    System.out.print(tmpString);
+                    System.out.print("\n");
+                    redisZsetUtil.add("ranking-apply", tmpString, tmp.getApplyCount());
+                    redisZsetUtil.add("ranking-visit", tmpString, tmp.getViewCount());
+                    redisZsetUtil.add("ranking-like", tmpString, tmp.getFavoriteCount());
+                }
+            }
         }
 
         return SimpleResponse.ok(ResultResponseWithoutData.builder()
@@ -74,10 +93,9 @@ public class RankingService {
 
             Date date = transFormat.parse(from);
 
-            int tmp = recruitMapper.updateViewCount(Integer.parseInt(array[1]),
-                    Integer.parseInt(String.valueOf(Math.round(rank.getScore()))));
+            //int tmp = recruitMapper.updateViewCount(Integer.parseInt(array[1]),Integer.parseInt(String.valueOf(Math.round(rank.getScore()))));
 
-            if (tmp < 0) {throw new RedisToDbException(); }
+            //if (tmp < 0) {throw new RedisToDbException(); }
 
             if (date.compareTo(time)  < 0) {
 
@@ -109,7 +127,7 @@ public class RankingService {
 
         Calendar cal = Calendar.getInstance();
         cal.setTime(time);
-        cal.add(Calendar.DATE,30);
+        cal.add(Calendar.DATE,7);
 
         for (ZSetOperations.TypedTuple<String> rank : rankingSet) {
 
@@ -149,12 +167,12 @@ public class RankingService {
         List<GetRankingResponseDTO> getRankingResponseDTOList = new ArrayList<>();
         int i = 1;
 
-        Date time = new Date();
+        Date today = new Date();
         SimpleDateFormat transFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm");
 
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(time);
-        cal.add(Calendar.DATE,30);
+        Calendar seven = Calendar.getInstance();
+        seven.setTime(today);
+        seven.add(Calendar.DATE,7);
 
         for (ZSetOperations.TypedTuple<String> rank : rankingSet) {
 
@@ -164,8 +182,10 @@ public class RankingService {
             Date endDate = transFormat.parse(endTime);
 
             //7일 이후마감이면 제외
+            log.info("like rank api\n");
+            log.info(rank.getValue());
 
-            if(time.compareTo(endDate) <= 0 && endDate.compareTo(cal.getTime()) <= 0){
+            if(today.compareTo(endDate) <= 0 && endDate.compareTo(seven.getTime()) <= 0){
                 getRankingResponseDTOList
                         .add(new GetRankingResponseDTO(array,rank.getScore(),i++));
             }
@@ -193,7 +213,7 @@ public class RankingService {
 
         Calendar cal = Calendar.getInstance();
         cal.setTime(time);
-        cal.add(Calendar.DATE,30);
+        cal.add(Calendar.DATE,7);
 
         for (ZSetOperations.TypedTuple<String> rank : rankingSet) {
 
@@ -204,6 +224,7 @@ public class RankingService {
 
             //이미 마감 or 오 늘+ 7일 이전에 끝나지않을때
             if(time.compareTo(endDate) <= 0 && endDate.compareTo(cal.getTime()) <= 0){
+
                 getRankingResponseDTOList
                         .add(new GetRankingResponseDTO(array,rank.getScore(),i++));
             }

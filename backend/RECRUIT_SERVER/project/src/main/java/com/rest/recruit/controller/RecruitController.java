@@ -1,6 +1,5 @@
 package com.rest.recruit.controller;
 
-import com.rest.recruit.dto.ResultResponse;
 import com.rest.recruit.dto.ResultResponseWithoutData;
 import com.rest.recruit.dto.SimpleResponse;
 import com.rest.recruit.dto.request.DataWithToken;
@@ -12,9 +11,11 @@ import com.rest.recruit.exception.UnauthorizedException;
 import com.rest.recruit.service.RecruitService;
 import com.rest.recruit.util.DateValidation;
 import com.rest.recruit.util.JwtUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.catalina.connector.ClientAbortException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,9 +23,12 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 
+import java.io.IOException;
+import java.util.concurrent.ExecutionException;
+
 //또한, 특정 도메인만 접속을 허용할 수도 있습니다.
 //      - @CrossOrigin(origins = "허용주소:포트")
-
+@Slf4j
 @CrossOrigin("*")
 @Api(tags={"채용공고"})
 @RestController
@@ -32,7 +36,7 @@ import io.swagger.annotations.ApiParam;
 public class RecruitController {
 
     private final RecruitService recruitService;
-    private static final Logger logger = LoggerFactory.getLogger(RecruitController.class);
+
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -41,13 +45,33 @@ public class RecruitController {
         this.recruitService = recruitService;
     }
 
+    @ExceptionHandler(ClientAbortException.class)
+    protected ResponseEntity clientAbortException(ClientAbortException e) {
+        log.info("client disconnected");
+        return SimpleResponse.ok(ResultResponseWithoutData.builder()
+                .message(HttpStatus.INTERNAL_SERVER_ERROR.toString())
+                .status("500")
+                .success("false").build());
+    }
+
+
+    @ExceptionHandler(IOException.class)
+    protected ResponseEntity IOExceptionHandler(IOException e) {
+        log.info("ioexception");
+        return SimpleResponse.ok(ResultResponseWithoutData.builder()
+                .message(HttpStatus.INTERNAL_SERVER_ERROR.toString())
+                .status("500")
+                .success("false").build());
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     //refactor
     @ApiOperation(value = "채용공고 캘린더 리팩토링", httpMethod = "GET", notes = "채용공고 캘린더 조회" , response=GetCalendarResponse.class)
     @GetMapping("/calendar/refactor")
     public ResponseEntity calendarRefactor(@ApiParam(value = "startTime , endTime", required = true)
                                    @RequestParam(value = "startTime")  String startTime,
-                                   @RequestParam(value = "endTime") String endTime) {
+                                                   @RequestParam(value = "endTime") String endTime) throws ExecutionException, InterruptedException {
+
 
         long start = System.currentTimeMillis();
         //logger.info("채용공고캘린더 api 실행 시작");
@@ -59,7 +83,7 @@ public class RecruitController {
                 (GetRecruitCalendarRequestDTO.builder().startTime(startTime).endTime(endTime).build());
 
         long end = System.currentTimeMillis();
-        logger.info("리팩토링 후 채용공고 캘린더 api 수행 시간 : "+ Long.toString(end-start));
+        log.info("리팩토링 후 채용공고 캘린더 api 수행 시간 : "+ Long.toString(end-start));
         return result;
     }
 
@@ -68,15 +92,13 @@ public class RecruitController {
     public ResponseEntity calendarLikeList(@ApiParam(value = "startTime , endTime", required = true)
                                    @RequestHeader(value="Authorization") String token,
                                    @RequestParam(value = "startTime")  String startTime,
-                                   @RequestParam(value = "endTime") String endTime) {
+                                   @RequestParam(value = "endTime") String endTime) throws ExecutionException, InterruptedException {
 
 
         if (!DateValidation.validationDate(startTime) || !DateValidation.validationDate(endTime)) {
 
             throw new UnValidatedDateTypeException();
         }
-
-
 
         String tokenString = token.substring("Bearer ".length());
 
@@ -91,49 +113,55 @@ public class RecruitController {
     @GetMapping("/detail/{recruitIdx}")
     public ResponseEntity detailRecuitPage(@ApiParam(value = "recruitIdx", required = true)
                                            @RequestHeader(value="Authorization", required=false) String token,
-                                           @PathVariable(value = "recruitIdx") int recruitIdx) {
+                                                     @PathVariable(value = "recruitIdx") int recruitIdx) throws ExecutionException, InterruptedException {
         //logger.info("상세 채용공고 api 실행 시작");
-        long start = System.currentTimeMillis();
-        if (token == null || token.isEmpty()) {
-            //logger.info("token empty\n");
-            ResponseEntity result = recruitService.GetDetailRecruit(
-                    DataWithToken.builder().recruitIdx(recruitIdx).build());
 
-            long end = System.currentTimeMillis();
-            logger.info("리팩토링 후 상세 채용공고 api 수행 시간 : "+ Long.toString(end-start));
-            return result;
+
+
+                long start = System.currentTimeMillis();
+                if (token.substring("Bearer".length()).equals("null") || token.substring("Bearer ".length()).equals("null") || token == null || token.isEmpty()) {
+                    log.info("token empty\n");
+                    ResponseEntity result = recruitService.GetDetailRecruit(
+                            DataWithToken.builder().recruitIdx(recruitIdx).build());
+
+                    long end = System.currentTimeMillis();
+                    log.info("리팩토링 후 상세 채용공고 api 수행 시간 : " + Long.toString(end - start));
+
+                    return result;
+                }
+
+                String tokenString = token.substring("Bearer ".length());
+
+
+                if(!jwtUtil.isValidToken(tokenString)){
+                    //logger.info("expire or no valid token\n");
+                    //throw new ExpiredTokenException();
+                    ResponseEntity result =
+                            recruitService.GetDetailRecruit(
+                                    DataWithToken.builder()
+                                            .recruitIdx(recruitIdx)
+                                            .statusCode(402)
+                                            .build());
+
+                    long end = System.currentTimeMillis();
+                    log.info("리팩토링 후 상세 채용공고 api 수행 시간 : "+ Long.toString(end-start));
+                    return result;
+                }
+
+                if(!jwtUtil.isAccessToken(tokenString)) {
+                    //logger.info("no accessToken");
+                    throw new UnauthorizedException();
+                }
+
+
+                ResponseEntity result = recruitService.GetDetailRecruit(DataWithToken.builder()
+                        .userIdx(jwtUtil.getAuthentication(tokenString)).recruitIdx(recruitIdx).build());
+
+                long end = System.currentTimeMillis();
+                log.info("리팩토링 후 상세 채용공고 api 수행 시간 : "+ Long.toString(end-start));
+                return result;
+
         }
-
-        String tokenString = token.substring("Bearer ".length());
-
-        if(!jwtUtil.isValidToken(tokenString)){
-            //logger.info("expire or no valid token\n");
-            //throw new ExpiredTokenException();
-            ResponseEntity result =
-                    recruitService.GetDetailRecruit(
-                            DataWithToken.builder()
-                                    .recruitIdx(recruitIdx)
-                                    .statusCode(402)
-                                    .build());
-
-            long end = System.currentTimeMillis();
-            logger.info("리팩토링 후 상세 채용공고 api 수행 시간 : "+ Long.toString(end-start));
-            return result;
-        }
-
-        if(!jwtUtil.isAccessToken(tokenString)) {
-            //logger.info("no accessToken");
-            throw new UnauthorizedException();
-        }
-
-
-        ResponseEntity result = recruitService.GetDetailRecruit(DataWithToken.builder()
-                .userIdx(jwtUtil.getAuthentication(tokenString)).recruitIdx(recruitIdx).build());
-
-        long end = System.currentTimeMillis();
-        logger.info("리팩토링 후 상세 채용공고 api 수행 시간 : "+ Long.toString(end-start));
-        return result;
-    }
 
 
 
@@ -149,7 +177,7 @@ public class RecruitController {
             ResponseEntity result = recruitService.GetDetailRecruitPage(DataWithToken.builder().recruitIdx(recruitIdx).build());
 
             long end = System.currentTimeMillis();
-            logger.info("리팩토링 전 상세 채용공고 api 수행 시간 : "+ Long.toString(end-start));
+            log.info("리팩토링 전 상세 채용공고 api 수행 시간 : "+ Long.toString(end-start));
             return result;
         }
 
@@ -160,7 +188,7 @@ public class RecruitController {
             //throw new ExpiredTokenException();
             ResponseEntity result = recruitService.GetDetailRecruitPage(DataWithToken.builder().recruitIdx(recruitIdx).statusCode(402).build());
             long end = System.currentTimeMillis();
-            logger.info("리팩토링 전 상세 채용공고 api 수행 시간 : "+ Long.toString(end-start));
+            log.info("리팩토링 전 상세 채용공고 api 수행 시간 : "+ Long.toString(end-start));
             return result;
         }
 
@@ -177,7 +205,7 @@ public class RecruitController {
                 .userIdx(jwtUtil.getAuthentication(tokenString)).recruitIdx(recruitIdx).build());
 
         long end = System.currentTimeMillis();
-        logger.info("리팩토링 전 상세 채용공고 api 수행 시간 : "+ Long.toString(end-start));
+        log.info("리팩토링 전 상세 채용공고 api 수행 시간 : "+ Long.toString(end-start));
         return result;
     }
     @ApiOperation(value = "채용공고 캘린더 조회", httpMethod = "GET", notes = "채용공고 캘린더 조회" , response=GetCalendarResponse.class)
@@ -198,7 +226,7 @@ public class RecruitController {
                     (GetRecruitCalendarRequestDTO.builder().startTime(startTime).endTime(endTime).build());
 
             long end = System.currentTimeMillis();
-            logger.info("리팩토링 전 채용공고 캘린더 api 수행 시간 : "+ Long.toString(end-start));
+            log.info("리팩토링 전 채용공고 캘린더 api 수행 시간 : "+ Long.toString(end-start));
             return result;
         }
 
@@ -211,7 +239,7 @@ public class RecruitController {
                             .endTime(endTime)
                             .statusCode(402).build());
             long end = System.currentTimeMillis();
-            logger.info("리팩토링 전 채용공고 캘린더 api 수행 시간 : "+ Long.toString(end-start));
+            log.info("리팩토링 전 채용공고 캘린더 api 수행 시간 : "+ Long.toString(end-start));
             return result;
         }
 
@@ -228,7 +256,7 @@ public class RecruitController {
                 .userIdx(userIdx).build());
 
         long end = System.currentTimeMillis();
-        logger.info("리팩토링 전 채용공고 캘린더 api 수행 시간 : "+ Long.toString(end-start));
+        log.info("리팩토링 전 채용공고 캘린더 api 수행 시간 : "+ Long.toString(end-start));
 
         return result;
     }
@@ -256,4 +284,32 @@ public class RecruitController {
         return recruitService.PostUnlikeRecruit(DataWithToken.builder()
                 .userIdx(jwtUtil.getAuthentication(tokenString)).recruitIdx(recruitIdx).build());
     }
+
+    /*
+    <select id = "GetViewCount" resultType="int">
+        SELECT view_count FROM recruit WHERE id = #{recruitIdx};
+    </select>
+    *
+    * */
+
+  //likelist/detailIdx?????
+
+    @CacheEvict(cacheNames="detailRecruit", key = "#recruitIdx")
+    @DeleteMapping("/cache/{recruitIdx}")
+    public ResponseEntity cacheDelete(@ApiParam(value = "recruitIdx", required = true)
+                                       @PathVariable(value = "recruitIdx") int recruitIdx) {
+
+        return   SimpleResponse.ok(ResultResponseWithoutData.builder()
+                .message("좋아요수 조회 성공")
+                .status("200")
+                .success("true")
+                .build());
+    }
+
+    @CacheEvict(cacheNames ="detailPosition", key="#recruitIdx")
+    public void test(){
+        System.out.print("cacheEvict");
+    }
+
+
 }

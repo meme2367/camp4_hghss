@@ -1,5 +1,6 @@
 package com.rest.recruit.model;
 
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -18,4 +19,19 @@ public class Recruit {
     private int viewCount;
     private boolean favorite;
     private int favoriteCount;
+
+    public void setRecruit(Recruit recruit) {
+        this.recruitId = recruit.recruitId;
+        this.companyId = recruit.companyId;
+        this.companyName = recruit.companyName;
+        this.imageFileName = recruit.imageFileName;
+        this.employmentPageUrl = recruit.employmentPageUrl;
+        this.startTime = recruit.startTime;
+        this.endTime = recruit.endTime;
+        this.recruitType = recruit.recruitType;
+        this.content = recruit.content;
+
+
+
+    }
 }
