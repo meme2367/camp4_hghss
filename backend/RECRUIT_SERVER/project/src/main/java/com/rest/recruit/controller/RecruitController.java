@@ -22,8 +22,6 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 
-//또한, 특정 도메인만 접속을 허용할 수도 있습니다.
-//      - @CrossOrigin(origins = "허용주소:포트")
 
 @CrossOrigin("*")
 @Api(tags={"채용공고"})
@@ -48,7 +46,7 @@ public class RecruitController {
                                    @RequestParam(value = "endTime") String endTime) {
 
         long start = System.currentTimeMillis();
-        //logger.info("채용공고캘린더 api 실행 시작");
+
         if (!DateValidation.validationDate(startTime) || !DateValidation.validationDate(endTime)) {
             throw new UnValidatedDateTypeException();
         }
@@ -90,10 +88,10 @@ public class RecruitController {
     public ResponseEntity detailRecuitPage(@ApiParam(value = "recruitIdx", required = true)
                                            @RequestHeader(value="Authorization", required=false) String token,
                                            @PathVariable(value = "recruitIdx") int recruitIdx) {
-        //logger.info("상세 채용공고 api 실행 시작");
+
         long start = System.currentTimeMillis();
         if (token == null || token.isEmpty()) {
-            //logger.info("token empty\n");
+
             ResponseEntity result = recruitService.GetDetailRecruit(
                     DataWithToken.builder().recruitIdx(recruitIdx).build());
 
@@ -105,7 +103,7 @@ public class RecruitController {
         String tokenString = token.substring("Bearer ".length());
 
         if(!jwtUtil.isValidToken(tokenString)){
-            //logger.info("expire or no valid token\n");
+
             ResponseEntity result =
                     recruitService.GetDetailRecruit(
                             DataWithToken.builder()
@@ -119,7 +117,7 @@ public class RecruitController {
         }
 
         if(!jwtUtil.isAccessToken(tokenString)) {
-            //logger.info("no accessToken");
+
             throw new UnauthorizedException();
         }
 
@@ -153,7 +151,7 @@ public class RecruitController {
         String tokenString = token.substring("Bearer ".length());
 
         if(!jwtUtil.isValidToken(tokenString)){
-//            logger.info("expire or no valid token\n");
+
 
             ResponseEntity result = recruitService.GetDetailRecruitPage(DataWithToken.builder().recruitIdx(recruitIdx).statusCode(402).build());
             long end = System.currentTimeMillis();
@@ -162,7 +160,7 @@ public class RecruitController {
         }
 
         if(!jwtUtil.isAccessToken(tokenString)) {
-            //logger.info("no accessToken\n");
+
             throw new UnauthorizedException();
         }
 
