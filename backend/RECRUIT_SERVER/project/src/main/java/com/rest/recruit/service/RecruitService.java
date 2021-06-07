@@ -25,15 +25,12 @@ import java.util.*;
 @Service
 public class RecruitService {
 
-//
     @Autowired
     RecruitMapper recruitMapper;
 
     @Autowired
     RedisTemplate<String, String> redisTemplate;
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    ////refactor
     @Cacheable(cacheNames="calendar" , key = "#getRecruitCalendarRequestDTO.startTime+#getRecruitCalendarRequestDTO.endTime")
     public ResponseEntity GetRecruitCalendar(GetRecruitCalendarRequestDTO getRecruitCalendarRequestDTO) {
 
@@ -128,7 +125,6 @@ public class RecruitService {
             int updateCheck = recruitMapper.updateViewCountWithDB(tmpdetail.getRecruitId());
             int getVisitCount = recruitMapper.GetViewCount(tmpdetail.getRecruitId());
 
-            //레디스에없다면 update +1
             tmpdetail.setViewCount(getVisitCount);
 
         }
@@ -186,9 +182,6 @@ public class RecruitService {
     }
 
 
-
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////
 
     public ResponseEntity GetRecruitCalendarByDate(GetRecruitCalendarRequestDTO getRecruitCalendarRequestDTO) {
 
