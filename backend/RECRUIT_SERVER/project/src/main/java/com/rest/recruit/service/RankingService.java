@@ -118,12 +118,6 @@ public class RankingService {
             String endTime = array[0];
             Date endDate = transFormat.parse(endTime);
 
-            //오늘+7 이전에 마감해야함 = 마감일.compareTo(오늘+7) < 0
-            //오늘이후에 마감해야함 = 오늘compareTo(마감일) < 0
-
-//            if (endDate.compareTo(time) <0  || cal.getTime().compareTo(endDate) < 0) { continue; }
-
-
             if(time.compareTo(endDate) <= 0 && endDate.compareTo(cal.getTime()) <= 0){
                 getRankingResponseDTOList
                         .add(new GetRankingResponseDTO(array,rank.getScore(),i++));
@@ -163,8 +157,6 @@ public class RankingService {
             String endTime = array[0];
             Date endDate = transFormat.parse(endTime);
 
-            //7일 이후마감이면 제외
-
             if(time.compareTo(endDate) <= 0 && endDate.compareTo(cal.getTime()) <= 0){
                 getRankingResponseDTOList
                         .add(new GetRankingResponseDTO(array,rank.getScore(),i++));
@@ -202,7 +194,6 @@ public class RankingService {
             String endTime = array[0];
             Date endDate = transFormat.parse(endTime);
 
-            //이미 마감 or 오 늘+ 7일 이전에 끝나지않을때
             if(time.compareTo(endDate) <= 0 && endDate.compareTo(cal.getTime()) <= 0){
                 getRankingResponseDTOList
                         .add(new GetRankingResponseDTO(array,rank.getScore(),i++));
