@@ -139,7 +139,6 @@ public class ExceptionAdvice {
      */
 
     @ExceptionHandler(ExpiredTokenException.class)
-//    @ExceptionHandler(ExpiredJwtException.class)
     public ResponseEntity handleExpiredTokenException(ExpiredTokenException e) {
         return SimpleResponse.ok(ResultResponse.builder()
                 .message(e.getMessage())
@@ -147,7 +146,6 @@ public class ExceptionAdvice {
                 .success("false").build());
     }
 
-    //token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhdXRoLkhHSFNTQGdtYWlsLmNvbSIsInVzZXJJZCI6MSwiZW1haWwiOiJhdXRoLkhHSFNTQGdtYWlsLmNvbSIsIm5pY2tuYW1lIjoi6rCA64OY7ZSIIOqwgOqwnOu5hCIsInJvbGUiOjEsInRva2VuVHlwZSI6IkFDQ0VTU19UT0tFTiIsImV4cCI6MTU4MTkzODk5OX0=.PswxsPdt2c4tZCBQotlkVvXtdDOLYQBWmNxwzh8dJhs=
 
     /**
      *  Expired Jwt exception
