@@ -41,8 +41,6 @@ public class RecruitController {
         this.recruitService = recruitService;
     }
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////////
-    //refactor
     @ApiOperation(value = "채용공고 캘린더 리팩토링", httpMethod = "GET", notes = "채용공고 캘린더 조회" , response=GetCalendarResponse.class)
     @GetMapping("/calendar/refactor")
     public ResponseEntity calendarRefactor(@ApiParam(value = "startTime , endTime", required = true)
@@ -108,7 +106,6 @@ public class RecruitController {
 
         if(!jwtUtil.isValidToken(tokenString)){
             //logger.info("expire or no valid token\n");
-            //throw new ExpiredTokenException();
             ResponseEntity result =
                     recruitService.GetDetailRecruit(
                             DataWithToken.builder()
@@ -137,7 +134,7 @@ public class RecruitController {
 
 
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     @ApiOperation(value = "상세 채용공고 페이지 조회", httpMethod = "GET", notes = "상세 채용공고 페이지 조회",response= GetRecruitDetailResponseDTO.class)
     @GetMapping("/before/{recruitIdx}")
     public ResponseEntity detailRecuit(@ApiParam(value = "recruitIdx", required = true)
@@ -157,7 +154,7 @@ public class RecruitController {
 
         if(!jwtUtil.isValidToken(tokenString)){
 //            logger.info("expire or no valid token\n");
-            //throw new ExpiredTokenException();
+
             ResponseEntity result = recruitService.GetDetailRecruitPage(DataWithToken.builder().recruitIdx(recruitIdx).statusCode(402).build());
             long end = System.currentTimeMillis();
             logger.info("리팩토링 전 상세 채용공고 api 수행 시간 : "+ Long.toString(end-start));
@@ -167,7 +164,6 @@ public class RecruitController {
         if(!jwtUtil.isAccessToken(tokenString)) {
             //logger.info("no accessToken\n");
             throw new UnauthorizedException();
-            //return recruitService.GetDetailRecruitPage(DataWithToken.builder().recruitIdx(recruitIdx).statusCode(401).build());
         }
 
 
@@ -215,7 +211,7 @@ public class RecruitController {
             return result;
         }
 
-        if(!jwtUtil.isAccessToken(tokenString)){//refresh vs access
+        if(!jwtUtil.isAccessToken(tokenString)){
             throw new UnauthorizedException();
         }
 
