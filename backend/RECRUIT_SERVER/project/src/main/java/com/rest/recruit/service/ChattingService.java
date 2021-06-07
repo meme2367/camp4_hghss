@@ -74,8 +74,6 @@ public class ChattingService {
 
     public ResponseEntity postEnterChatting(int userIdx, int companyIdx) {
 
-        //채팅방 입장
-        // 이미있으면 넣지x
         Chatting tmp = chattingMapper.getChatting(userIdx,companyIdx);
 
         if(tmp != null){
