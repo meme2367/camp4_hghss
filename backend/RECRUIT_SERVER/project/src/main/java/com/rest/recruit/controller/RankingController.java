@@ -23,8 +23,7 @@ public class RankingController {
         this.rankingService = rankingService;
     }
 
-    //먼저해야함
-    //매일오후 11시 50분
+
     @Scheduled(cron="0 50 23 * * ?")
     @ApiOperation(value = "채용공고 db to redis", httpMethod = "POST", notes ="채용공고 DB를 REDIS에 업로드")
     @PostMapping("/updateRedis")
@@ -33,8 +32,6 @@ public class RankingController {
     }
 
 
-    //스케쥴링
-    //매일정각
     @Scheduled(cron="0 0 0 * * ?")
     @ApiOperation(value = "redis to 채용공고 db", httpMethod = "PUT", notes ="REDIS를 채용공고 DB에 업로드")
     @PostMapping("/updateDB")
