@@ -238,7 +238,7 @@ public class RecruitService {
 
             tmpdetail.setViewCount(tmpdetail.getViewCount()+1);
             int updateCheck = recruitMapper.updateViewCountWithDB(dataWithToken.getRecruitIdx());
-            //레디스에없다면 update +1
+
             if (updateCheck < 0) {
                 return SimpleResponse.ok();
             }
